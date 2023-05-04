@@ -1,0 +1,43 @@
+api
+
+# set name and color
+command: {"type": "join_server", "data": {"name": "example name", "color": "example color"}}
+returns: None
+effects: sets name and color in db and broadcasts: {type: "new_penguin", data: [{'PK': 'D2di4d7rPHcCIkw=', 'name': 'a penguin', 'color': 'black', 'position_x': 0, 'position_y': 0}]}
+         to all clients
+         
+# send chat
+command: {"type": "chat", "data": "this is an example chat message"}
+returns: None
+effects: broadcasts {"type": "chat", "data": {"id": "D2di4d7rPHcCIkw=", "text": "this is an example chat message"}}
+         to all connected clients
+
+# throw snowball
+command: {"type": "snowball", "data": {"position_x": 20, "position_y": 30}}
+returns: None
+effects: broadcasts {"type": "snowball", "data": {"id": "D2di4d7rPHcCIkw=", "x": 20, "y": 30}
+         to all connected clients
+
+# move
+command: {"type": "move", "data": {"position_x": 20, "position_y": 30}}
+returns: None
+effects: broadcasts {"type": "move", "data": {"id": "D2di4d7rPHcCIkw=", "x": 20, "y": 30}}
+         to all connected clients
+
+# get table data
+command: {"type": "get_table_data"}
+returns: list of penguins from db: {type: "set_db", data: [{'position_y': 0,
+                                     'PK': 'dummy penguin 1',
+                                     'name': 'dummy name 1',
+                                     'position_x': 0,
+                                     'color': 'dummy color 1'}]}
+effects: None
+
+# get id
+command: '{"type": "get_id"}'
+returns: {"type": "id", "data": id}
+
+# leaving
+command: none
+sent on ws disconnect from server
+broadcasts: {"type": "leaving", "data": id}

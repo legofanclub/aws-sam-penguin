@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS SAM CLI Nested Stack for Auto Dependency Layer Creation
+Metadata:
+  SamCliInfo: 1.79.0
+  key: AWS SAM CLI sync command
+Outputs:
+  PenguinFunction6bab73ddDepLayer:
+    Value:
+      Ref: PenguinFunction6bab73ddDepLayer
+Resources:
+  PenguinFunction6bab73ddDepLayer:
+    Metadata:
+      CreatedBy: AWS SAM CLI sync command
+    Properties:
+      CompatibleRuntimes:
+      - python3.9
+      ContentUri: C:\Users\xp\Documents\sam sandbox\sam-sandbox\.aws-sam\auto-dependency-layer\PenguinFunction6bab73ddDepLayer
+      Description: Auto created layer for dependencies of function PenguinFunction
+      LayerName: sam-sandbox311c5a88-PenguinFunction6bab73dd-DepLayer
+      RetentionPolicy: Delete
+    Type: AWS::Serverless::LayerVersion
+Transform: AWS::Serverless-2016-10-31

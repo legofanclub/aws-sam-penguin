@@ -1,0 +1,189 @@
+# code adapted from: https://github.com/jbarratt/rpsls/blob/main/backend/template.yaml
+# MIT License
+
+# Copyright (c) 2020 Joshua Barratt
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  portfolio-penguin-backend
+
+  SAM Template for portfolio penguin backend
+
+Parameters:
+  TableName:
+    Type: String
+    Default: 'Penguin_db'
+    Description: (Required) The name of the new DynamoDB to store connection identifiers for each connected clients. Minimum 3 characters
+    MinLength: 3
+    MaxLength: 50
+    AllowedPattern: ^[A-Za-z_]+$
+    ConstraintDescription: 'Required. Can be characters and underscore only. No numbers or special characters allowed.'
+
+Resources:
+  PenguinWebsocket:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: PenguinWebsocket
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.message"
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PenguinWebsocket
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref ConnectInteg
+  ConnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PenguinWebsocket
+      Description: Connect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: 
+        Fn::Sub:
+            arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PenguinFunction.Arn}/invocations
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PenguinWebsocket
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: DisconnectRoute
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref DisconnectInteg
+  DisconnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PenguinWebsocket
+      Description: Disconnect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: 
+        Fn::Sub:
+            arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PenguinFunction.Arn}/invocations
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PenguinWebsocket
+      RouteKey: $default
+      AuthorizationType: NONE
+      OperationName: DefaultRoute
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref DefaultInteg
+  DefaultInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PenguinWebsocket
+      Description: Default Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: 
+        Fn::Sub:
+            arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PenguinFunction.Arn}/invocations
+  Deployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+    - ConnectRoute
+    - DefaultRoute
+    - DisconnectRoute
+    Properties:
+      ApiId: !Ref PenguinWebsocket
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: Prod
+      Description: Prod Stage
+      DeploymentId: !Ref Deployment
+      ApiId: !Ref PenguinWebsocket
+  ConnectionsTable: 
+    Type: AWS::DynamoDB::Table
+    Properties:
+      # BillingMode: "PAY_PER_REQUEST"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+      - AttributeName: "PK"
+        AttributeType: "S"
+      # - AttributeName: "SK"
+      #   AttributeType: "S"
+      KeySchema:
+      - AttributeName: "PK"
+        KeyType: "HASH"
+      # - AttributeName: "SK"
+      #   KeyType: "RANGE"
+      # SSESpecification:
+      #   SSEEnabled: True
+      TableName: !Ref TableName
+      # TimeToLiveSpecification:
+      #   AttributeName: "Expires"
+      #   Enabled: True
+  PenguinFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 3
+      CodeUri: app/
+      Handler: app.handler
+      MemorySize: 128 
+      Runtime: python3.9
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+          WEBSOCKET: !Ref PenguinWebsocket
+          REGION: !Ref 'AWS::Region'
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: !Ref TableName
+      - AmazonAPIGatewayInvokeFullAccess
+      - Statement:
+        - Effect: Allow
+          Action:
+          - 'execute-api:ManageConnections'
+          Resource:
+          - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PenguinWebsocket}/*'
+  PenguinPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - PenguinWebsocket
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PenguinFunction
+      Principal: apigateway.amazonaws.com
+
+Outputs:
+  ConnectionsTableArn:
+    Description: "Connections table ARN"
+    Value: !GetAtt ConnectionsTable.Arn
+
+  PenguinFunctionArn:
+    Description: "Penguin function ARN"
+    Value: !GetAtt PenguinFunction.Arn
+
+  WebSocketURI:
+    Description: "The WSS Protocol URI to connect to"
+    Value: !Join [ '', [ 'wss://', !Ref PenguinWebsocket, '.execute-api.',!Ref 'AWS::Region','.amazonaws.com/',!Ref 'Stage'] ]
