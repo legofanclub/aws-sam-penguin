@@ -122,7 +122,11 @@ function App() {
           </button>
         </div>
       </div>
-    </div> : <p> loading </p>)
+    </div> :
+      <div style={{display: 'flex'}}>
+        <div className="loading"> connecting to server... </div>
+      </div>
+    )
   );
 }
 
