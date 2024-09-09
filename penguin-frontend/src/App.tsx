@@ -18,6 +18,7 @@ function App() {
   const [name, setName] = useState("example name");
   const [chat, setChat] = useState("example message");
   const [joinButtonMessage, setJoinButtonMessage] = useState("connecting to server");
+  const [connected, setConnected] = useState(false);
   const websocketRef = useRef();
 
   const propsRef = useRef({ chat: chat, name: name });
@@ -28,6 +29,7 @@ function App() {
     );
     websocketRef.current.addEventListener("open", () => {
       console.log("connected!!");
+      setConnected(true);
       setJoinButtonMessage("join server")
     })
     return (
@@ -66,7 +68,7 @@ function App() {
   };
 
   return (
-    <div>
+    (connected ? <div>
       <div style={{ position: "relative" }}>
         {Sketch}
         <input
@@ -120,7 +122,7 @@ function App() {
           </button>
         </div>
       </div>
-    </div>
+    </div> : <p> loading </p>)
   );
 }
 
