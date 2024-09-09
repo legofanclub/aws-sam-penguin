@@ -30,7 +30,7 @@ function App() {
     websocketRef.current.addEventListener("open", () => {
       console.log("connected!!");
       setConnected(true);
-      setJoinButtonMessage("join server")
+      setJoinButtonMessage("yarn update worked")
     })
     return (
       <SK all={Object.assign(propsRef.current, { ws: websocketRef.current })} />
